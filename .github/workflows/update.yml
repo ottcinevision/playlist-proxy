@@ -1,0 +1,58 @@
+name: Update Playlist
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update-playlist:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download playlist
+        run: |
+          curl -L \
+            --fail \
+            --retry 3 \
+            --connect-timeout 30 \
+            --max-time 120 \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153.0.0.0 Safari/537.36" \
+            -H "Accept: */*" \
+            -o playlist.m3u \
+            "https://tv.ngebutz.my.id/playlist/nonton2025/12345/m3u_plus?utm_source=chatgpt.com"
+
+      - name: Check playlist
+        run: |
+          if [ ! -s playlist.m3u ]; then
+            echo "Playlist kosong!"
+            exit 1
+          fi
+
+          if ! grep -q "#EXTM3U\|#EXTINF" playlist.m3u; then
+            echo "File bukan playlist M3U yang valid!"
+            exit 1
+          fi
+
+          echo "Playlist berhasil diambil."
+          wc -l playlist.m3u
+
+      - name: Save playlist
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add playlist.m3u
+
+          if git diff --cached --quiet; then
+            echo "Tidak ada perubahan playlist."
+          else
+            git commit -m "Update playlist"
+            git push
+          fi
